@@ -167,6 +167,12 @@ sub _insert_to_queue {
 
 sub _failed_job {
     my ($self, $queue_name) = @_;
+    
+    my $params = $self->request->parameters;
+    if( defined $params->{lost} && $params->{lost} ) {
+        $self->_lost_job( $queue_name );
+        return; 
+    }
 
     my $worker_id = $self->request->header('X-presque-workerid')
       if $self->request->header('X-presque-workerid');
@@ -178,6 +184,14 @@ sub _failed_job {
     }
 
     $self->_create_job($queue_name);
+}
+
+sub _lost_job {
+    my ($self, $queue_name) = @_;
+
+    $self->application->redis->hincrby($self->_queue_lost, $queue_name, 1);
+    $self->response->code(201);
+    $self->finish();
 }
 
 sub _purge_queue {
@@ -209,6 +223,7 @@ sub _purge_queue {
     $self->application->redis->del($self->_queue_uniq_revert($queue_name));
     $self->application->redis->hdel($self->_queue_processed, $queue_name);
     $self->application->redis->hdel($self->_queue_failed,    $queue_name);
+    $self->application->redis->hdel($self->_queue_lost,    $queue_name);
 
     $self->response->code(204);
     $self->finish();

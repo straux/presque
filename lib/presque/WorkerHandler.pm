@@ -78,14 +78,22 @@ sub _get_stats_for_queue {
                 $queue_name,
                 sub {
                     my $processed = shift;
-                    $desc->{processed} = $processed;
+                    $desc->{processed} = $processed || 0;
                     $self->application->redis->hget(
                         $self->_queue_failed,
                         $queue_name,
                         sub {
                             my $failed = shift;
-                            $desc->{failed} = $failed;
-                            $self->entity($desc);
+                            $desc->{failed} = $failed || 0;
+                            $self->application->redis->hget(
+                                $self->_queue_lost,
+                                $queue_name,
+                                sub {
+                                    my $lost = shift;
+                                    $desc->{lost} = $lost || 0;
+                                    $self->entity($desc);
+                                }
+                            );
                         }
                     );
                 }

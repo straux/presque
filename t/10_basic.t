@@ -22,6 +22,7 @@ my $app = presque->app(
 my $queue            = "presque_test";
 my $worker_id        = "worker_foo";
 my $queue_url        = "http://localhost/q/$queue";
+my $lost_queue_url   = "http://localhost/q/$queue?lost=1";
 my $queue_batch_url  = "http://localhost/qb/$queue";
 my $job_url          = "http://localhost/j/$queue";
 my $status_url       = "http://localhost/status/$queue";
@@ -41,6 +42,7 @@ test_psgi $app, sub {
         job_count     => 0,
         queue_name    => $queue,
         job_failed    => 0,
+        job_lost      => 0,
       },
       'good job info result';
 
@@ -60,6 +62,7 @@ test_psgi $app, sub {
     is_deeply JSON::decode_json $res->content,
       { job_count     => 1,
         job_failed    => 0,
+        job_lost      => 0,
         job_processed => 0,
         queue_name    => $queue,
       },
@@ -145,6 +148,7 @@ test_psgi $app, sub {
         queue_name   => "presque_test",
         processed    => 7,
         failed       => 1,
+        lost         => 0,
       },
       'valid stats for queue';
 
@@ -166,6 +170,21 @@ test_psgi $app, sub {
         queue_name   => "presque_test",
         processed    => 9,
         failed       => 1,
+        lost         => 0,
+      },
+      'valid stats for queue';
+
+    # job lost
+    $res = lost_job($cb);
+    is $res->code, 201, 'valid HTTP code returned';
+
+    $res = workers_stats($cb);
+    is_deeply JSON::decode_json $res->content,
+      { workers_list => [qw/worker_foo/],
+        queue_name   => "presque_test",
+        processed    => 9,
+        failed       => 1,
+        lost         => 1,
       },
       'valid stats for queue';
 
@@ -230,6 +249,15 @@ sub failed_job {
     $req->header('Content-Type' => 'application/json');
     $req->content(JSON::encode_json({foo => 1}));
     ok my $res = $cb->($req), 'store a failed job';
+    $res;
+}
+
+sub lost_job {
+    my ($cb, ) = @_;
+    my $req = HTTP::Request->new(PUT => $lost_queue_url);
+    $req->header('Content-Type' => 'application/json');
+    $req->content(JSON::encode_json({}));
+    ok my $res = $cb->($req), 'count a lost job';
     $res;
 }
 

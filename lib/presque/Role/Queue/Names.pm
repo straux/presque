@@ -57,5 +57,6 @@ sub _workers_failed    {"workers:failed"}
 
 sub _queue_processed   {"processed"}
 sub _queue_failed      {"failed"}
+sub _queue_lost      {"lost"}
 
 1;

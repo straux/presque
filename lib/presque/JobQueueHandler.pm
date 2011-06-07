@@ -28,11 +28,19 @@ sub get {
                         $queue_name,
                         sub {
                             my $failed = shift;
-                            $self->entity(
-                                {   queue_name    => $queue_name,
-                                    job_count     => $size || 0,
-                                    job_failed    => $failed || 0,
-                                    job_processed => $processed || 0,
+                            $self->application->redis->hget(
+                                $self->_queue_lost,
+                                $queue_name,
+                                sub {
+                                    my $lost = shift;
+                                    $self->entity(
+                                        {   queue_name    => $queue_name,
+                                            job_count     => $size || 0,
+                                            job_failed    => $failed || 0,
+                                            job_lost      => $lost || 0,
+                                            job_processed => $processed || 0,
+                                        }
+                                    );
                                 }
                             );
                         }
